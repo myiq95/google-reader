@@ -1,7 +1,8 @@
-const CACHE_NAME = 'reader-pwa-v1';
+const CACHE_NAME = 'premium-reader-v2';
 const ASSETS = [
   './index.html',
-  './manifest.json'
+  './manifest.json',
+  './apple-touch-icon.png' // 아이콘 파일이 있을 경우
 ];
 
 self.addEventListener('install', (e) => {
