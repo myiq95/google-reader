@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>프리미엄 서재 (Premium Reader)</title>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#2c2824">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Serif+KR:wght@300;400;500;600&family=Noto+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Parsers -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/epub.js/0.3.88/epub.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <style>
+    /* 1. 디자인 시스템 & 테마 */
+    :root {
+      --bg-color: #faf7f2;
+      --card-bg: #ffffff;
+      --text-color: #2b2b2b;
+      --text-muted: #736b5e;
+      --border-color: #e5e0d8;
+      --accent-color: #a8823f; /* Gold point from design */
+      --dialogue-color: #b47a18; /* Warm amber for dialogue */
+      --modal-bg: #ffffff;
+      --shadow-sm: 0 4px 12px rgba(0,0,0,0.06);
+      --shadow-lg: 0 15px 35px rgba(0,0,0,0.15);
+    }
+    
+    html[data-theme="dark"] {
+      --bg-color: #1a1816; /* Dark brown from background */
+      --card-bg: #26231f;
+      --text-color: #e8e2d5;
+      --text-muted: #a39989;
+      --border-color: #3b352e;
+      --accent-color: #d4a853; /* Brighter gold */
+      --dialogue-color: #e6b356;
+      --modal-bg: #24201b;
+    }
+
+    /* 2. 공통 스타일 */
+    * { box-sizing: border-box; margin: 0; padding: 0; outline: none; -webkit-tap-highlight-color: transparent; }
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: 'Noto Serif KR', serif;
+      line-height: 2.05; /* Minimalist modern line-height */
+      transition: background-color 0.3s, color 0.3s;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+    button { background: none; border: none; cursor: pointer; color: inherit; font-family: inherit; }
+    .hidden { display: none !important; }
+
+    /* 3. 초기 화면 (고급 양장본 디자인) */
+    #home-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1.5rem 5rem 1.5rem; /* Space for bottom island */
+      background-image: linear-gradient(135deg, var(--card-bg) 0%, var(--bg-color) 100%);
+    }
+    .book-cover-card {
+      width: 100%;
+      max-width: 380px;
+      background: var(--card-bg);
+      border: 3px solid var(--accent-color); /* Elegant gold border */
+      border-radius: 16px;
+      padding: 3.5rem 2rem;
+      box-shadow: var(--shadow-lg);
+      text-align: center;
+      position: relative;
+    }
+    .book-cover-card::before {
+      content: '';
+      position: absolute;
+      top: 6px; left: 6px; right: 6px; bottom: 6px;
+      border: 1px solid var(--accent-color);
+      border-radius: 12px;
+      pointer-events: none;
+      opacity: 0.5;
+    }
+    
+    /* 초기화면 아이콘 버튼 그룹 */
+    .icon-btn-group {
+      display: flex;
+      justify-content: center;
+      gap: 1.5rem;
+      margin-top: 3rem;
+    }
+    .icon-btn {
+      width: 3.75rem;
+      height: 3.75rem;
+      border-radius: 50%;
+      background: var(--bg-color);
+      border: 1px solid var(--border-color);
+      color: var(--accent-color);
+      font-size: 1.4rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease-in-out;
+      box-shadow: var(--shadow-sm);
+    }
+    .icon-btn:hover {
+      transform: translateY(-3px);
+      background: var(--accent-color);
+      color: #fff;
+    }
+
+    /* 4. 서재 화면 */
+    #bookshelf-screen {
+      padding: 2rem 1.5rem 6rem 1.5rem;
+      max-width: 900px;
+      margin: 0 auto;
+      width: 100%;
+    }
+    .bookshelf-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1.25rem;
+    }
+    .book-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 1.5rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: var(--shadow-sm);
+    }
+    .book-card:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.1); }
+
+    /* 5. 독서 뷰어 */
+    #reader-screen {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .sticky-header {
+      position: sticky;
+      top: 0;
+      background-color: var(--bg-color);
+      opacity: 0.98;
+      backdrop-filter: blur(8px);
+      z-index: 40;
+      padding: 0.8rem 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: 'Noto Sans KR', sans-serif;
+      font-size: 0.95rem;
+      color: var(--text-color);
+    }
+    .reader-body {
+      max-width: 720px;
+      margin: 0 auto;
+      width: 100%;
+      padding: 2rem 1.5rem 8rem 1.5rem;
+    }
+    .reader-article {
+      font-size: var(--font-size, 1.15rem);
+      letter-spacing: var(--letter-spacing, 0em);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .reader-article p { margin-bottom: 1.5em; text-indent: 1em; }
+    
+    /* 대사 강조 (설정에서 ON 가능) */
+    .highlight-dialogue .dialogue-text {
+      color: var(--dialogue-color);
+      font-weight: 500;
+    }
+
+    /* 하단 플로팅 메뉴 아일랜드 */
+    .floating-island {
+      position: fixed;
+      bottom: 1.5rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+      border-radius: 9999px;
+      padding: 0.75rem 2rem;
+      display: flex;
+      gap: 1.75rem;
+      z-index: 50;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+    }
+    .floating-island.hidden-bar {
+      transform: translate(-50%, 160%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .nav-icon {
+      font-size: 1.3rem;
+      color: var(--text-color);
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+    .nav-icon:hover { color: var(--accent-color); }
+
+    /* 6. 모달 & 가독성 개선된 목차 */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      z-index: 100;
+    }
+    .modal-box {
+      background: var(--modal-bg);
+      border: 1px solid var(--border-color);
+      width: 100%;
+      max-width: 500px;
+      border-radius: 20px;
+      padding: 1.75rem;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      color: var(--text-color);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.8rem;
+      border-bottom: 1px solid var(--border-color);
+      font-weight: 700;
+      color: var(--text-color);
+    }
+
+    /* 목차 전용 높은 가독성 스타일 */
+    .toc-list { overflow-y: auto; flex: 1; padding-right: 0.5rem; }
+    .toc-item {
+      width: 100%;
+      text-align: left;
+      padding: 0.9rem 1.2rem;
+      border-radius: 10px;
+      color: var(--text-color) !important; /* 명확한 대비 고정 */
+      font-size: 0.95rem;
+      font-family: 'Noto Sans KR', sans-serif;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      display: block;
+    }
+    .toc-item:hover {
+      background: var(--border-color);
+      color: var(--accent-color) !important;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- [1] 초기 화면 (고급 양장본 디자인) -->
+  <div id="home-screen">
+    <div class="book-cover-card">
+      <i class="fa-solid fa-book-bookmark" style="font-size: 3rem; color: var(--accent-color); margin-bottom: 1.2rem;"></i>
+      <h1 style="font-size: 1.9rem; font-weight: 800; margin-bottom: 0.5rem; color: var(--text-color);">서재</h1>
+      <p style="font-size: 0.9rem; color: var(--text-muted); font-family: 'Noto Sans KR', sans-serif;">나만의 고요한 독서 공간</p>
+
+      <!-- 순수 아이콘 메뉴 그룹 (파일열기, 붙여넣기, 서재목록) -->
+      <div class="icon-btn-group">
+        <label class="icon-btn" title="새 파일 열기">
+          <i class="fa-solid fa-folder-open"></i>
+          <input type="file" id="file-input" class="hidden" accept=".txt,.docx,.pdf,.epub,.md,.html" multiple onchange="handleFilesAndOpen(this.files)">
+        </label>
+        <button class="icon-btn" onclick="openPasteModal()" title="텍스트 붙여넣기">
+          <i class="fa-solid fa-paste"></i>
+        </button>
+        <button class="icon-btn" onclick="showBookshelf()" title="내 서재 열기">
+          <i class="fa-solid fa-layer-group"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- [2] 서재 화면 (별도 분리) -->
+  <div id="bookshelf-screen" class="hidden">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color); font-family: 'Noto Sans KR', sans-serif;">
+      <button onclick="showHome()" style="color: var(--accent-color); font-weight: 600;">
+        <i class="fa-solid fa-chevron-left"></i> 처음으로
+      </button>
+      <h2 style="font-size: 1.25rem; font-weight: 700;">내 서재 목록</h2>
+      <label style="cursor: pointer; color: var(--accent-color);" title="파일 추가">
+        <i class="fa-solid fa-plus-circle"></i>
+        <input type="file" class="hidden" accept=".txt,.docx,.pdf,.epub,.md,.html" multiple onchange="handleFiles(this.files)">
+      </label>
+    </div>
+
+    <div id="bookshelf-grid" class="bookshelf-grid">
+      <!-- 동적 생성 -->
+    </div>
+    <div id="empty-shelf" class="hidden" style="text-align: center; padding: 5rem 0; color: var(--text-muted);">
+      <i class="fa-solid fa-box-open" style="font-size: 4rem; margin-bottom: 1.5rem;"></i>
+      <p>서재에 보관된 도서가 없습니다.</p>
+    </div>
+  </div>
+
+  <!-- [3] 독서 뷰어 화면 -->
+  <div id="reader-screen" class="hidden">
+    <!-- 상단 고정 Bar -->
+    <div class="sticky-header">
+      <button onclick="showBookshelf()" style="color: var(--text-color); font-weight: 600;">
+        <i class="fa-solid fa-chevron-left"></i> 서재로
+      </button>
+      <span id="current-book-title" style="font-weight: 700; max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"></span>
+      <button onclick="toggleTOCModal()"><i class="fa-solid fa-list-ul"></i> 목차</button>
+    </div>
+
+    <!-- 본문 영역 -->
+    <div class="reader-body">
+      <article id="reader-article" class="reader-article highlight-dialogue"></article>
+    </div>
+
+    <!-- 아이콘 전용 플로팅 아일랜드 메뉴 (자동 숨김) -->
+    <div id="floating-menu" class="floating-island hidden-bar">
+      <button class="nav-icon" onclick="showHome()" title="처음으로"><i class="fa-solid fa-house"></i></button>
+      <button class="nav-icon" onclick="showBookshelf()" title="서재로"><i class="fa-solid fa-book"></i></button>
+      <button class="nav-icon" id="tts-btn" onclick="toggleTTS()" title="시스템 TTS 재생"><i class="fa-solid fa-volume-high"></i></button>
+      <button class="nav-icon" onclick="toggleSettingsModal()" title="서식 설정"><i class="fa-solid fa-sliders"></i></button>
+      <button class="nav-icon" id="dark-icon" onclick="toggleDarkMode()" title="나이트 모드"><i class="fa-solid fa-moon"></i></button>
+      <button class="nav-icon" onclick="toggleTOCModal()" title="목차 보기"><i class="fa-solid fa-list-ul"></i></button>
+    </div>
+  </div>
+
+  <!-- 모달: 목차 (가독성 수정 완료) -->
+  <div id="toc-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span style="color: var(--accent-color);"><i class="fa-solid fa-list-ul"></i> 목차</span>
+        <button onclick="toggleTOCModal()" style="font-size: 1.4rem;"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="toc-list" class="toc-list">
+        <!-- 목차 리스트 동적 생성 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- 모달: 서식 설정 -->
+  <div id="settings-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span>독서 환경 설정</span>
+        <button onclick="toggleSettingsModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 1.5rem; font-family: 'Noto Sans KR', sans-serif; font-size: 0.95rem;">
+        <div>
+          <label style="display: block; margin-bottom: 0.6rem;">글꼴 선택</label>
+          <select id="font-select" onchange="changeFont(this.value)" style="width: 100%; padding: 0.75rem; border-radius: 10px; background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color);">
+            <option value="'Noto Serif KR', serif">명조체 (기본)</option>
+            <option value="'Nanum Myeongjo', serif">나눔명조</option>
+            <option value="'Noto Sans KR', sans-serif">고딕체 (깔끔함)</option>
+          </select>
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 0.6rem;">글자 크기 (<span id="font-size-val">1.15</span>rem)</label>
+          <input type="range" id="font-size-range" min="0.9" max="1.8" step="0.05" value="1.15" oninput="changeFontSize(this.value)" style="width: 100%; accent-color: var(--accent-color);">
+        </div>
+        <div>
+          <label style="display: block; margin-bottom: 0.6rem;">대사 강조 기능</label>
+          <button onclick="toggleDialogueHighlight()" id="dialogue-toggle-btn" style="padding: 0.6rem 1.2rem; border-radius: 10px; border: 1px solid var(--border-color); background: var(--card-bg); color: var(--text-color); font-weight: 500;">
+            대사 강조 ON
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 모달: 붙여넣기 -->
+  <div id="paste-modal" class="modal-overlay hidden">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span>텍스트 붙여넣기</span>
+        <button onclick="closePasteModal()"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <input type="text" id="paste-title" placeholder="도서/문서 제목 입력" style="width: 100%; padding: 0.75rem; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); margin-bottom: 1rem;">
+      <textarea id="paste-content" placeholder="여기에 텍스트를 붙여넣으세요..." style="width: 100%; height: 220px; padding: 0.75rem; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-color); color: var(--text-color); resize: none; margin-bottom: 1.25rem;"></textarea>
+      <div style="display: flex; justify-content: flex-end; gap: 0.75rem;">
+        <button onclick="closePasteModal()" style="padding: 0.6rem 1.2rem; border-radius: 10px; border: 1px solid var(--border-color); font-family: 'Noto Sans KR', sans-serif;">취소</button>
+        <button onclick="savePastedText()" style="padding: 0.6rem 1.2rem; border-radius: 10px; background: var(--accent-color); color: #fff; font-weight: 600; font-family: 'Noto Sans KR', sans-serif;">서재에 저장</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 상태 관리 및 저장
+    let books = JSON.parse(localStorage.getItem('reading_books_v2') || '[]');
+    let currentBookId = null;
+    let synth = window.speechSynthesis;
+    let utterance = null;
+    let isSpeaking = false;
+    let dialogueHighlight = true;
+
+    // 초기화
+    window.addEventListener('DOMContentLoaded', () => {
+      loadUserSettings();
+      setupFloatingMenuScroll();
+      if (localStorage.getItem('pref_home_visited') !== 'true') {
+        showHome();
+        localStorage.setItem('pref_home_visited', 'true');
+      } else {
+        showBookshelf();
+      }
+    });
+
+    // 플로팅 메뉴 자동 숨김 로직
+    let lastScrollY = window.scrollY;
+    function setupFloatingMenuScroll() {
+      window.addEventListener('scroll', () => {
+        const menu = document.getElementById('floating-menu');
+        if (!menu || document.getElementById('reader-screen').classList.contains('hidden')) return;
+        
+        if (window.scrollY > lastScrollY && window.scrollY > 150) {
+          menu.classList.add('hidden-bar');
+        } else {
+          menu.classList.remove('hidden-bar');
+        }
+        lastScrollY = window.scrollY;
+      });
+    }
+
+    // 화면 전환 함수들
+    function showHome() {
+      stopTTS();
+      saveCurrentScroll();
+      currentBookId = null;
+      document.getElementById('bookshelf-screen').classList.add('hidden');
+      document.getElementById('reader-screen').classList.add('hidden');
+      document.getElementById('home-screen').classList.remove('hidden');
+      document.body.style.overflow = 'auto';
+    }
+
+    function showBookshelf() {
+      stopTTS();
+      saveCurrentScroll();
+      currentBookId = null;
+      document.getElementById('home-screen').classList.add('hidden');
+      document.getElementById('reader-screen').classList.add('hidden');
+      document.getElementById('bookshelf-screen').classList.remove('hidden');
+      document.body.style.overflow = 'auto';
+      renderBookshelf();
+    }
+
+    // 현재 스크롤 위치 저장 (이어읽기)
+    function saveCurrentScroll() {
+      if (currentBookId) {
+        let book = books.find(b => b.id == currentBookId);
+        if (book) {
+          book.scrollTop = window.scrollY;
+          saveBooks();
+        }
+      }
+    }
+
+    // 파일 처리 (TXT, DOCX, PDF, EPUB, MD, HTML + 인코딩 UTF-8, CP949 호환)
+    async function handleFiles(files) {
+      for (let file of files) {
+        let content = await parseFile(file);
+        if (content) {
+          let title = file.name.replace(/\.[^/.]+$/, "");
+          addBookToShelf(title, content);
+        }
+      }
+      renderBookshelf();
+    }
+
+    // 초기화면에서 파일 열고 바로 독서
+    async function handleFilesAndOpen(files) {
+      if (files.length === 0) return;
+      let file = files[0];
+      let content = await parseFile(file);
+      if (content) {
+        let title = file.name.replace(/\.[^/.]+$/, "");
+        let newBook = {
+          id: Date.now() + Math.random(),
+          title,
+          content,
+          scrollTop: 0,
+          toc: generateTOC(content)
+        };
+        books.unshift(newBook);
+        saveBooks();
+        openBook(newBook.id);
+      }
+    }
+
+    // 파일 확장자별 파싱 로직
+    async function parseFile(file) {
+      if (file.name.endsWith('.txt')) {
+        let buffer = await file.arrayBuffer();
+        try {
+          let decoder = new TextDecoder('utf-8', { fatal: true });
+          return decoder.decode(buffer);
+        } catch (e) {
+          let decoder = new TextDecoder('euc-kr'); // CP949/ANSI 호환
+          return decoder.decode(buffer);
+        }
+      } else if (file.name.endsWith('.docx')) {
+        let arrayBuffer = await file.arrayBuffer();
+        let result = await mammoth.extractRawText({arrayBuffer});
+        return result.value;
+      } else if (file.name.endsWith('.md') || file.name.endsWith('.html')) {
+        let text = await file.text();
+        if (file.name.endsWith('.html')) {
+          let parser = new DOMParser();
+          let doc = parser.parseFromString(text, 'text/html');
+          return doc.body.textContent || '';
+        }
+        return text;
+      } else if (file.name.endsWith('.pdf')) {
+        let arrayBuffer = await file.arrayBuffer();
+        let pdf = await pdfjsLib.getDocument({data: arrayBuffer}).promise;
+        let text = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+          let page = await pdf.getPage(i);
+          let content = await page.getTextContent();
+          text += content.items.map(item => item.str).join(' ') + '\n\n';
+        }
+        return text;
+      } else if (file.name.endsWith('.epub')) {
+        let book = ePub(await file.arrayBuffer());
+        let spine = await book.loaded.spine;
+        let text = '';
+        for (let item of spine.spineItems) {
+          let doc = await item.load(book.load.bind(book));
+          text += (doc.body ? doc.body.textContent : doc.textContent) + '\n\n';
+        }
+        return text;
+      }
+      return '';
+    }
+
+    // 텍스트 붙여넣기 저장
+    function savePastedText() {
+      let title = document.getElementById('paste-title').value.trim() || '제목 없는 문서';
+      let content = document.getElementById('paste-content').value.trim();
+      if (!content) return alert('내용을 입력해주세요.');
+      addBookToShelf(title, content);
+      closePasteModal();
+      document.getElementById('paste-title').value = '';
+      document.getElementById('paste-content').value = '';
+      showBookshelf();
+    }
+
+    function addBookToShelf(title, content) {
+      let newBook = {
+        id: Date.now() + Math.random(),
+        title,
+        content,
+        scrollTop: 0,
+        toc: generateTOC(content)
+      };
+      books.unshift(newBook);
+      saveBooks();
+    }
+
+    function saveBooks() {
+      localStorage.setItem('reading_books_v2', JSON.stringify(books));
+    }
+
+    // 목차 생성 (한글 소설 논리 반영 + 임의 자동 목차)
+    function generateTOC(content) {
+      let lines = content.split('\n');
+      let toc = [];
+      let regex = /^(제\s*\d+\s*[장회편권]|[0-9]+\.\s+|[一二三四五六七八九十]+장)/;
+      
+      lines.forEach((line, index) => {
+        let trimmed = line.trim();
+        if (regex.test(trimmed) && trimmed.length < 50) {
+          toc.push({ title: trimmed, lineIndex: index });
+        }
+      });
+
+      // 목차가 없을 경우 임의 목차 생성
+      if (toc.length === 0) {
+        let totalLines = lines.length;
+        let step = Math.max(Math.floor(totalLines / 10), 30);
+        for (let i = 0; i < totalLines; i += step) {
+          let previewText = lines[i] ? lines[i].trim().substring(0, 18) : '';
+          toc.push({ 
+            title: `${Math.round((i / totalLines) * 100)}% 지점 - ${previewText}...`, 
+            lineIndex: i 
+          });
+        }
+      }
+      return toc;
+    }
+
+    // 서재 렌더링
+    function renderBookshelf() {
+      let grid = document.getElementById('bookshelf-grid');
+      let empty = document.getElementById('empty-shelf');
+      grid.innerHTML = '';
+
+      if (books.length === 0) {
+        empty.classList.remove('hidden');
+        return;
+      }
+      empty.classList.add('hidden');
+
+      books.forEach(book => {
+        let card = document.createElement('div');
+        card.className = 'book-card';
+        card.onclick = () => openBook(book.id);
+        card.innerHTML = `
+          <div>
+            <h3 style="font-weight: 700; margin-bottom: 0.6rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-color);">${book.title}</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.6;">${book.content.substring(0, 100)}...</p>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 1.2rem; padding-top: 0.6rem; border-top: 1px solid var(--border-color); font-size: 0.8rem; color: var(--text-muted); font-family: 'Noto Sans KR', sans-serif;">
+            <span>이어서 읽기</span>
+            <button onclick="event.stopPropagation(); deleteBook('${book.id}')" style="color: #d9534f; padding: 2px 5px;"><i class="fa-solid fa-trash-can"></i></button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    function deleteBook(id) {
+      if (!confirm('해당 도서를 서재에서 삭제할까요?')) return;
+      books = books.filter(b => b.id != id);
+      saveBooks();
+      renderBookshelf();
+    }
+
+    // 도서 열기 및 이어 읽기 복원
+    function openBook(id) {
+      currentBookId = id;
+      let book = books.find(b => b.id == id);
+      if (!book) return;
+
+      document.getElementById('home-screen').classList.add('hidden');
+      document.getElementById('bookshelf-screen').classList.add('hidden');
+      document.getElementById('reader-screen').classList.remove('hidden');
+      document.getElementById('current-book-title').textContent = book.title;
+
+      renderFormattedArticle(book.content);
+
+      // 스크롤 위치 복원
+      setTimeout(() => {
+        window.scrollTo(0, book.scrollTop || 0);
+        document.getElementById('floating-menu').classList.remove('hidden-bar'); // 메뉴 잠깐 보이기
+      }, 50);
+    }
+
+    // 본문 대사 강조 처리 렌더링
+    function renderFormattedArticle(content) {
+      let article = document.getElementById('reader-article');
+      if (dialogueHighlight) {
+        // 따옴표로 감싸진 대사 문장 감지 및 가공
+        let formatted = content.replace(/(["'“‘][^"'”’\n]+["'”’])/g, '<span class="dialogue-text">$1</span>');
+        article.innerHTML = formatted;
+      } else {
+        article.textContent = content;
+      }
+    }
+
+    // 스크롤 위치 자동 저장
+    window.addEventListener('scroll', () => {
+      if (currentBookId) {
+        let book = books.find(b => b.id == currentBookId);
+        if (book) {
+          book.scrollTop = window.scrollY;
+          saveBooks();
+        }
+      }
+    });
+
+    // 목차 모달 및 이동
+    function toggleTOCModal() {
+      let modal = document.getElementById('toc-modal');
+      modal.classList.toggle('hidden');
+      if (!modal.classList.contains('hidden')) {
+        let book = books.find(b => b.id == currentBookId);
+        let listContainer = document.getElementById('toc-list');
+        listContainer.innerHTML = '';
+        if (book && book.toc) {
+          book.toc.forEach(item => {
+            let btn = document.createElement('button');
+            btn.className = 'toc-item';
+            btn.textContent = item.title;
+            btn.onclick = () => {
+              jumpToLine(item.lineIndex);
+              toggleTOCModal();
+            };
+            listContainer.appendChild(btn);
+          });
+        }
+      }
+    }
+
+    function jumpToLine(lineIndex) {
+      let article = document.getElementById('reader-article');
+      let lines = article.textContent.split('\n');
+      let targetPos = (article.scrollHeight / lines.length) * lineIndex;
+      window.scrollTo(0, targetPos);
+    }
+
+    // 시스템 TTS 기능 (Web Speech API)
+    function toggleTTS() {
+      if (isSpeaking) {
+        stopTTS();
+      } else {
+        startTTS();
+      }
+    }
+
+    function startTTS() {
+      if (!synth) return alert('시스템 TTS를 지원하지 않는 브라우저입니다.');
+      let book = books.find(b => b.id == currentBookId);
+      if (!book) return;
+
+      // 현재 스크롤 위치부터 읽기 시작
+      let currentText = book.content.substring(Math.floor((window.scrollY / document.body.scrollHeight) * book.content.length));
+      utterance = new SpeechSynthesisUtterance(currentText);
+      utterance.rate = 1.0;
+      utterance.lang = 'ko-KR';
+      
+      utterance.onend = () => { isSpeaking = false; updateTTSBtn(); };
+      utterance.onerror = () => { isSpeaking = false; updateTTSBtn(); };
+
+      synth.speak(utterance);
+      isSpeaking = true;
+      updateTTSBtn();
+    }
+
+    function stopTTS() {
+      if (synth) synth.cancel();
+      isSpeaking = false;
+      updateTTSBtn();
+    }
+
+    function updateTTSBtn() {
+      let btn = document.getElementById('tts-btn');
+      if (isSpeaking) {
+        btn.innerHTML = '<i class="fa-solid fa-volume-xmark" style="color: var(--accent-color); anim: pulse 1.5s infinite;"></i>';
+      } else {
+        btn.innerHTML = '<i class="fa-solid fa-volume-high"></i>';
+      }
+    }
+
+    // 모달 및 서식 설정 관리
+    function toggleSettingsModal() {
+      document.getElementById('settings-modal').classList.toggle('hidden');
+    }
+    function openPasteModal() {
+      document.getElementById('paste-modal').classList.remove('hidden');
+    }
+    function closePasteModal() {
+      document.getElementById('paste-modal').classList.add('hidden');
+    }
+
+    function changeFont(font) {
+      document.body.style.fontFamily = font;
+      localStorage.setItem('pref_font', font);
+    }
+    function changeFontSize(size) {
+      document.documentElement.style.setProperty('--font-size', size + 'rem');
+      document.getElementById('font-size-val').textContent = size;
+      localStorage.setItem('pref_fontsize', size);
+    }
+
+    function toggleDialogueHighlight() {
+      dialogueHighlight = !dialogueHighlight;
+      let btn = document.getElementById('dialogue-toggle-btn');
+      btn.textContent = dialogueHighlight ? '대사 강조 ON' : '대사 강조 OFF';
+      let book = books.find(b => b.id == currentBookId);
+      if (book) renderFormattedArticle(book.content);
+    }
+
+    function toggleDarkMode() {
+      let html = document.documentElement;
+      let currentTheme = html.getAttribute('data-theme');
+      let newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', newTheme);
+      localStorage.setItem('pref_theme', newTheme);
+      document.getElementById('dark-icon').innerHTML = newTheme === 'dark' ? '<i class="fa-solid fa-sun"></i>' : '<i class="fa-solid fa-moon"></i>';
+    }
+
+    function loadUserSettings() {
+      let font = localStorage.getItem('pref_font');
+      if (font) { document.body.style.fontFamily = font; document.getElementById('font-select').value = font; }
+      
+      let fontsize = localStorage.getItem('pref_fontsize');
+      if (fontsize) { document.documentElement.style.setProperty('--font-size', fontsize + 'rem'); document.getElementById('font-size-range').value = fontsize; document.getElementById('font-size-val').textContent = fontsize; }
+
+      let theme = localStorage.getItem('pref_theme') || 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      if (theme === 'dark') {
+        document.getElementById('dark-icon').innerHTML = '<i class="fa-solid fa-sun"></i>';
+      }
+    }
+  </script>
+</body>
+</html>
