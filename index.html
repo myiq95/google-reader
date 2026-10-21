@@ -60,7 +60,7 @@
     button { background: none; border: none; cursor: pointer; color: inherit; font-family: inherit; }
     .hidden { display: none !important; }
 
-    /* 1. 품위 있는 일러스트풍 초기 화면 (여백의 미와 세련된 일러스트 감성) */
+    /* 1. 품위 있는 일러스트풍 초기 화면 */
     #home-screen {
       position: relative;
       min-height: 100vh;
@@ -73,7 +73,6 @@
       overflow: hidden;
     }
 
-    /* 일러스트풍 은은한 빛 무늬 백그라운드 */
     .bg-glow-1 {
       position: absolute;
       top: -150px; left: -100px;
@@ -136,39 +135,40 @@
       letter-spacing: 0.1em;
     }
 
-    /* 하단 세련된 아일랜드 네비게이션 바 */
+    /* 하단 세련된 아일랜드 네비게이션 바 (아이콘 및 텍스트 시각성 강화) */
     .home-nav-island {
       width: 100%;
-      max-width: 380px;
-      background: rgba(35, 29, 24, 0.85);
-      border: 1px solid rgba(196, 154, 69, 0.3);
+      max-width: 400px;
+      background: rgba(35, 29, 24, 0.9);
+      border: 1px solid rgba(196, 154, 69, 0.4);
       backdrop-filter: blur(12px);
       border-radius: 20px;
-      padding: 1rem 1.5rem;
+      padding: 1.1rem 1.5rem;
       display: flex;
       justify-content: space-around;
       align-items: center;
       z-index: 10;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
     }
     .home-nav-item {
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 0.4rem;
-      color: #d4c4a8;
-      font-size: 0.78rem;
+      color: #e3d4bb;
+      font-size: 0.82rem;
       font-family: 'Noto Sans KR', sans-serif;
+      font-weight: 500;
       cursor: pointer;
       transition: all 0.2s;
     }
     .home-nav-item i {
-      font-size: 1.4rem;
+      font-size: 1.5rem;
       color: #c49a45;
     }
     .home-nav-item:hover {
       transform: translateY(-2px);
-      color: #fff;
+      color: #ffffff;
     }
 
     /* 2. 서재 화면 (프라이버시 분리 공간) */
@@ -337,7 +337,7 @@
 </head>
 <body>
 
-  <!-- [1] 초기 화면 (프라이버시 보호 및 품위 있는 일러스트 디자인) -->
+  <!-- [1] 초기 화면 (서재 버튼 아이콘 수정 반영) -->
   <div id="home-screen">
     <div class="bg-glow-1"></div>
     <div class="bg-glow-2"></div>
@@ -352,7 +352,7 @@
     <!-- 하단 컴팩트 네비게이션 바 -->
     <div class="home-nav-island">
       <div class="home-nav-item" onclick="showBookshelf()">
-        <i class="fa-solid fa-books"></i>
+        <i class="fa-solid fa-layer-group"></i>
         <span>내 서재</span>
       </div>
       <label class="home-nav-item">
